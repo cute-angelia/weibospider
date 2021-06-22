@@ -2,7 +2,7 @@ package models
 
 // User 微博用户信息
 type User struct {
-	ID              uint64 `json:"id"`
+	ID              uint64 `json:"id" gorm:"primaryKey"`
 	Name            string `json:"screen_name"`
 	Verified        bool   `json:"verified"`
 	VerifiedType    int32  `json:"verified_type"`

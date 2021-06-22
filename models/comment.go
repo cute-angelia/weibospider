@@ -4,7 +4,7 @@ import "time"
 
 // Comment 评论信息
 type Comment struct {
-	UID       int32
+	UID       int32 `gorm:"primaryKey"`
 	Content   string
 	WeiboURL  string
 	LikeNum   int32

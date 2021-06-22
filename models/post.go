@@ -13,7 +13,7 @@ type Post struct {
 	URL            string `json:"url"`
 	UID            uint64 `json:"uid"`
 	CreateAt       string `json:"created_at"`
-	ID             string `json:"id"`
+	ID             string `json:"id" gorm:"primaryKey"`
 	MID            string `json:"mid"`
 	Text           string `json:"text"`
 	RepostsCount   int32  `json:"reposts_count"`

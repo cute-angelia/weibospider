@@ -21,6 +21,8 @@ type Post struct {
 	AttitudesCount int32  `json:"attitudes_count"`
 	IsLongText     bool   `json:"isLongText"`
 	PicNum         int32  `json:"pic_num"`
+	Updated        int64  `gorm:"autoUpdateTime"`
+	Created        int64  `gorm:"autoCreateTime"`
 }
 
 func (p Post) Save() error {

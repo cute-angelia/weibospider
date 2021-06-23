@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -12,7 +13,7 @@ import (
 type Post struct {
 	URL            string `json:"url"`
 	UID            uint64 `json:"uid"`
-	CreateAt       string `json:"created_at"`
+	PostCreatedAt  string `json:"created_at"`
 	ID             string `json:"id" gorm:"primaryKey"`
 	MID            string `json:"mid"`
 	Text           string `json:"text"`
@@ -21,8 +22,8 @@ type Post struct {
 	AttitudesCount int32  `json:"attitudes_count"`
 	IsLongText     bool   `json:"isLongText"`
 	PicNum         int32  `json:"pic_num"`
-	Updated        int64  `gorm:"autoUpdateTime"`
-	Created        int64  `gorm:"autoCreateTime"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (p Post) Save() error {

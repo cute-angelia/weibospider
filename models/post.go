@@ -24,6 +24,24 @@ type Post struct {
 	PicNum         int32  `json:"pic_num"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+
+	Pics []Pic `json:"pics"`
+}
+
+type Pic struct {
+	Pid   string `json:"pid"`
+	Geo   PicGeo `json:"geo"`
+	Large struct {
+		Size string `json:"size"`
+		Url  string `json:"url"`
+		Geo  PicGeo `json:"geo"`
+	} `json:"large"`
+}
+
+type PicGeo struct {
+	Width  interface{}  `json:"width"`
+	Height interface{}  `json:"height"`
+	Croped bool `json:"croped"`
 }
 
 func (p Post) Save() error {

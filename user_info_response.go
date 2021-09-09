@@ -1,6 +1,6 @@
 package weibospider
 
-import "github.com/wyxpku/weibospider/models"
+import "weibospider/models"
 
 type UserInfoResponse struct {
 	OK   int32 `json:"ok"`

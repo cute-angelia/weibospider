@@ -7,7 +7,7 @@ type User struct {
 	Verified        bool   `json:"verified"`
 	VerifiedType    int32  `json:"verified_type"`
 	VerifiedTypeExt int32  `json:"verified_type_ext"`
-	VerifiedReasone int32  `json:"verified_reason"`
+	VerifiedReasone string  `json:"verified_reason"`
 	Description     string `json:"description"`
 	Gender          string `json:"gender"`
 	FollowersCount  int32  `json:"followers_count"`

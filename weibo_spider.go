@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"sync"
 	"time"
-
-	"github.com/wyxpku/weibospider/models"
+	"weibospider/models"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -22,6 +22,31 @@ const (
 	longTextUrlFmt  = "https://m.weibo.cn/statuses/extend?id=%s"
 )
 
+func init() {
+	log.SetReportCaller(true)
+}
+
+type weiboSpider struct {
+	delay    time.Duration
+	wg       sync.WaitGroup
+	longtext bool
+}
+
+func NewWeiboSpider(options ...Option) *weiboSpider {
+	// default
+	c := &weiboSpider{
+		delay:    5 * time.Second,
+		wg:       sync.WaitGroup{},
+		longtext: false,
+	}
+
+	for _, option := range options {
+		option(c)
+	}
+
+	return c
+}
+
 // getUserInfoUrl 生成用户信息 URL
 func getUserInfoUrl(uid uint64) string {
 	return fmt.Sprintf(userInfoUrlFmt, uid, uid)
@@ -32,7 +57,7 @@ func getUserPostsUrl(uid uint64, page uint32) string {
 	return fmt.Sprintf(userPostsUrlFmt, uid, uid, page)
 }
 
-// getLongTextUrl 生成长微博爬取 URL
+// 生成长微博爬取 URL
 func getLongTextUrl(id string) string {
 	return fmt.Sprintf(longTextUrlFmt, id)
 }
@@ -54,7 +79,7 @@ func RandomSleep(minSeconds, maxSeconds int32) {
 }
 
 // GetUserInfo 爬取用户信息
-func GetUserInfo(uid uint64) (models.User, error) {
+func (wb *weiboSpider) GetUserInfo(uid uint64) (models.User, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", getUserInfoUrl(uid), nil)
 	if err != nil {
@@ -73,6 +98,7 @@ func GetUserInfo(uid uint64) (models.User, error) {
 	log.WithFields(log.Fields{"status": resp.StatusCode, "url": resp.Request.URL.String()}).Info("request success")
 
 	body, err := ioutil.ReadAll(resp.Body)
+
 	if err != nil {
 		log.WithField("err", err.Error()).Error("response read failed")
 		return models.User{}, err
@@ -91,7 +117,7 @@ func GetUserInfo(uid uint64) (models.User, error) {
 	return uinfores.Data.UserInfo, nil
 }
 
-// getLongText 爬取长微博文本
+//  爬取长微博文本
 func getLongText(id string) (string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", getLongTextUrl(id), nil)
@@ -130,7 +156,19 @@ func getLongText(id string) (string, error) {
 }
 
 // GetUserPosts 爬取用户微博
-func GetUserPosts(uid uint64, page uint32) ([]models.Post, error) {
+func (wb *weiboSpider) GetUserPosts(uid uint64, page uint32) ([]models.Post, error) {
+	// delay
+	wb.wg.Wait()
+	if wb.delay > 0 {
+		defer func() {
+			wb.wg.Add(1)
+			go func() {
+				time.Sleep(time.Second * wb.delay)
+				wb.wg.Done()
+			}()
+		}()
+	}
+
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", getUserPostsUrl(uid, page), nil)
 	if err != nil {
@@ -162,7 +200,7 @@ func GetUserPosts(uid uint64, page uint32) ([]models.Post, error) {
 
 	posts := []models.Post{}
 	for _, card := range uposts.Data.Cards {
-		if card.MBlog.IsLongText {
+		if card.MBlog.IsLongText && wb.longtext {
 			RandomSleep(2, 5)
 			content, err := getLongText(card.MBlog.ID)
 			if err != nil {

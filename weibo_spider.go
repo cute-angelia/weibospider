@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cute-angelia/weibospider/models"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"sync"
 	"time"
-	"weibospider/models"
 
 	log "github.com/sirupsen/logrus"
 )

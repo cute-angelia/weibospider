@@ -1,6 +1,6 @@
 package weibospider
 
-import "weibospider/models"
+import "github.com/cute-angelia/weibospider/models"
 
 type PostsResponse struct {
 	OK   int32 `json:"ok"`

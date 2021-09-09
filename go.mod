@@ -1,4 +1,4 @@
-module weibospider
+module github.com/cute-angelia/weibospider
 
 go 1.16
 

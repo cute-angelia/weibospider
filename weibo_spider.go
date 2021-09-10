@@ -163,7 +163,7 @@ func (wb *weiboSpider) GetUserPosts(uid uint64, page uint32) ([]models.Post, err
 		defer func() {
 			wb.wg.Add(1)
 			go func() {
-				time.Sleep(time.Second * wb.delay)
+				time.Sleep(wb.delay)
 				wb.wg.Done()
 			}()
 		}()

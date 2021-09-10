@@ -221,3 +221,8 @@ func (wb *weiboSpider) GetUserPosts(uid uint64, page uint32) ([]models.Post, err
 	}
 	return posts, nil
 }
+
+// 用户喜欢
+func (wb *weiboSpider) GetUserLikes() {
+	// https://m.weibo.cn/api/container/getSecond?containerid=1078031878498994_-_photolike&page=2&count=24&title=%E8%B5%9E%E8%BF%87%E7%9A%84%E5%9B%BE%E7%89%87&luicode=10000011&lfid=1078031878498994&type=like
+}

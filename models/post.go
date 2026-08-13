@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -16,6 +17,7 @@ type Post struct {
 	PostCreatedAt  string `json:"created_at"`
 	ID             string `json:"id" gorm:"primaryKey"`
 	MID            string `json:"mid"`
+	MBlogID        string `json:"mblogid"`
 	Text           string `json:"text"`
 	RepostsCount   int32  `json:"reposts_count"`
 	CommentsCount  int32  `json:"comments_count"`
@@ -24,9 +26,80 @@ type Post struct {
 	PicNum         int32  `json:"pic_num"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
-	PageInfo PageInfo `json:"page_info"`
+	PageInfo       PageInfo `json:"page_info"`
 
 	Pics []Pic `json:"pics"`
+}
+
+func (p *Post) UnmarshalJSON(data []byte) error {
+	type postAlias Post
+	aux := struct {
+		*postAlias
+		ID      flexibleString `json:"id"`
+		MID     flexibleString `json:"mid"`
+		RawText string         `json:"text_raw"`
+		User    User           `json:"user"`
+	}{postAlias: (*postAlias)(p)}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	p.ID = string(aux.ID)
+	p.MID = string(aux.MID)
+	if p.Text == "" {
+		p.Text = aux.RawText
+	}
+	if p.ID == "" {
+		p.ID = p.MID
+	}
+	if p.MID == "" {
+		p.MID = p.ID
+	}
+	if p.UID == 0 {
+		p.UID = aux.User.ID
+	}
+	return nil
+}
+
+type flexibleString string
+
+func (s *flexibleString) UnmarshalJSON(data []byte) error {
+	var text string
+	if err := json.Unmarshal(data, &text); err == nil {
+		*s = flexibleString(text)
+		return nil
+	}
+
+	var number json.Number
+	if err := json.Unmarshal(data, &number); err == nil {
+		*s = flexibleString(number.String())
+		return nil
+	}
+
+	var f float64
+	if err := json.Unmarshal(data, &f); err == nil {
+		*s = flexibleString(strconv.FormatFloat(f, 'f', -1, 64))
+		return nil
+	}
+
+	return nil
+}
+
+func (p Post) LongTextID() string {
+	if p.MBlogID != "" {
+		return p.MBlogID
+	}
+	if p.MID != "" {
+		return p.MID
+	}
+	return p.ID
+}
+
+func (p Post) WeiboURL() string {
+	if p.UID == 0 || p.MBlogID == "" {
+		return p.URL
+	}
+	return fmt.Sprintf("https://weibo.com/%d/%s", p.UID, p.MBlogID)
 }
 
 type Pic struct {
@@ -52,6 +125,20 @@ type PageInfo struct {
 		Mp4HdMp4   string `json:"mp4_hd_mp4"`
 		Mp4LdMp4   string `json:"mp4_ld_mp4"`
 	} `json:"urls"`
+}
+
+func (p *PageInfo) UnmarshalJSON(data []byte) error {
+	type pageInfoAlias PageInfo
+	aux := struct {
+		*pageInfoAlias
+		Type flexibleString `json:"type"`
+	}{pageInfoAlias: (*pageInfoAlias)(p)}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	p.Type = string(aux.Type)
+	return nil
 }
 
 func (p Post) Save() error {

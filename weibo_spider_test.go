@@ -75,7 +75,13 @@ func TestGetUserPostsUsesSearchProfileParsesTextRawAndLongText(t *testing.T) {
 							"attitudes_count": 3,
 							"pic_num":         0,
 							"page_info": map[string]interface{}{
-								"type": 11,
+								"type":        11,
+								"object_type": "video",
+								"media_info": map[string]interface{}{
+									"mp4_720p_mp4": "https://example.test/video-720.mp4",
+									"mp4_hd_url":   "https://example.test/video-hd.mp4",
+									"mp4_sd_url":   "https://example.test/video-sd.mp4",
+								},
 							},
 							"user": map[string]interface{}{
 								"id":          2993720115,
@@ -91,6 +97,22 @@ func TestGetUserPostsUsesSearchProfileParsesTextRawAndLongText(t *testing.T) {
 							"comments_count":  5,
 							"attitudes_count": 6,
 							"pic_num":         1,
+							"pic_ids":         []string{"pic001"},
+							"pic_infos": map[string]interface{}{
+								"pic001": map[string]interface{}{
+									"pic_id": "pic001",
+									"largest": map[string]interface{}{
+										"url":    "https://wx1.sinaimg.cn/large/pic001.jpg",
+										"width":  2048,
+										"height": 1024,
+									},
+									"large": map[string]interface{}{
+										"url":    "https://wx1.sinaimg.cn/orj960/pic001.jpg",
+										"width":  960,
+										"height": 480,
+									},
+								},
+							},
 							"user": map[string]interface{}{
 								"id":          2993720115,
 								"screen_name": "tester",
@@ -128,8 +150,14 @@ func TestGetUserPostsUsesSearchProfileParsesTextRawAndLongText(t *testing.T) {
 	if posts[0].URL != "https://weibo.com/2993720115/Nabc123" {
 		t.Fatalf("first URL = %q", posts[0].URL)
 	}
+	if posts[0].PageInfo.Urls.Mp4720pMp4 != "https://example.test/video-720.mp4" {
+		t.Fatalf("video URL = %q", posts[0].PageInfo.Urls.Mp4720pMp4)
+	}
 	if posts[1].Text != "full long text" {
 		t.Fatalf("long text = %q", posts[1].Text)
+	}
+	if len(posts[1].Pics) != 1 || posts[1].Pics[0].Large.Url != "https://wx1.sinaimg.cn/large/pic001.jpg" {
+		t.Fatalf("pics = %#v", posts[1].Pics)
 	}
 }
 

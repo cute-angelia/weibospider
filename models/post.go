@@ -28,7 +28,9 @@ type Post struct {
 	UpdatedAt      time.Time
 	PageInfo       PageInfo `json:"page_info"`
 
-	Pics []Pic `json:"pics"`
+	PicIDs   []string           `json:"pic_ids"`
+	PicInfos map[string]PicInfo `json:"pic_infos"`
+	Pics     []Pic              `json:"pics"`
 }
 
 func (p *Post) UnmarshalJSON(data []byte) error {
@@ -57,6 +59,9 @@ func (p *Post) UnmarshalJSON(data []byte) error {
 	}
 	if p.UID == 0 {
 		p.UID = aux.User.ID
+	}
+	if len(p.Pics) == 0 && len(p.PicInfos) > 0 {
+		p.Pics = picsFromPicInfos(p.PicIDs, p.PicInfos)
 	}
 	return nil
 }
@@ -112,19 +117,84 @@ type Pic struct {
 	} `json:"large"`
 }
 
+type PicInfo struct {
+	PicID    string       `json:"pic_id"`
+	Large    PicInfoImage `json:"large"`
+	Largest  PicInfoImage `json:"largest"`
+	Original PicInfoImage `json:"original"`
+	Bmiddle  PicInfoImage `json:"bmiddle"`
+}
+
+type PicInfoImage struct {
+	Url    string      `json:"url"`
+	Width  interface{} `json:"width"`
+	Height interface{} `json:"height"`
+}
+
 type PicGeo struct {
 	Width  interface{} `json:"width"`
 	Height interface{} `json:"height"`
 	Croped bool        `json:"croped"`
 }
 
+func picsFromPicInfos(picIDs []string, picInfos map[string]PicInfo) []Pic {
+	if len(picIDs) == 0 {
+		for picID := range picInfos {
+			picIDs = append(picIDs, picID)
+		}
+	}
+
+	pics := make([]Pic, 0, len(picIDs))
+	for _, picID := range picIDs {
+		info, ok := picInfos[picID]
+		if !ok {
+			continue
+		}
+
+		image := bestPicInfoImage(info)
+		if image.Url == "" {
+			continue
+		}
+
+		pid := info.PicID
+		if pid == "" {
+			pid = picID
+		}
+		pic := Pic{Pid: pid}
+		pic.Large.Url = image.Url
+		pic.Large.Geo.Width = image.Width
+		pic.Large.Geo.Height = image.Height
+		pics = append(pics, pic)
+	}
+	return pics
+}
+
+func bestPicInfoImage(info PicInfo) PicInfoImage {
+	for _, image := range []PicInfoImage{info.Largest, info.Original, info.Large, info.Bmiddle} {
+		if image.Url != "" {
+			return image
+		}
+	}
+	return PicInfoImage{}
+}
+
 type PageInfo struct {
-	Type string `json:"type"`
-	Urls struct {
+	Type       string `json:"type"`
+	ObjectType string `json:"object_type"`
+	Urls       struct {
 		Mp4720pMp4 string `json:"mp4_720p_mp4"`
 		Mp4HdMp4   string `json:"mp4_hd_mp4"`
 		Mp4LdMp4   string `json:"mp4_ld_mp4"`
 	} `json:"urls"`
+	MediaInfo PageMediaInfo `json:"media_info"`
+}
+
+type PageMediaInfo struct {
+	StreamURL   string `json:"stream_url"`
+	StreamURLHD string `json:"stream_url_hd"`
+	Mp4720pMp4  string `json:"mp4_720p_mp4"`
+	Mp4HdURL    string `json:"mp4_hd_url"`
+	Mp4SDURL    string `json:"mp4_sd_url"`
 }
 
 func (p *PageInfo) UnmarshalJSON(data []byte) error {
@@ -138,7 +208,25 @@ func (p *PageInfo) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	p.Type = string(aux.Type)
+	if p.Urls.Mp4720pMp4 == "" {
+		p.Urls.Mp4720pMp4 = p.MediaInfo.Mp4720pMp4
+	}
+	if p.Urls.Mp4HdMp4 == "" {
+		p.Urls.Mp4HdMp4 = firstNonEmpty(p.MediaInfo.Mp4HdURL, p.MediaInfo.StreamURLHD, p.MediaInfo.StreamURL)
+	}
+	if p.Urls.Mp4LdMp4 == "" {
+		p.Urls.Mp4LdMp4 = firstNonEmpty(p.MediaInfo.Mp4SDURL, p.MediaInfo.StreamURL)
+	}
 	return nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (p Post) Save() error {

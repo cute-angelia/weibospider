@@ -53,6 +53,106 @@ func TestGetUserInfoUsesWeiboAjaxCookieAndParsesUser(t *testing.T) {
 	}
 }
 
+func TestGetUserInfoByURLUsesCustomProfile(t *testing.T) {
+	var gotCustom string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ajax/profile/info" {
+			t.Fatalf("path = %q, want /ajax/profile/info", r.URL.Path)
+		}
+		gotCustom = r.URL.Query().Get("custom")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok": true,
+			"data": map[string]interface{}{
+				"user": map[string]interface{}{
+					"id":          1821257283,
+					"screen_name": "黄圣依",
+					"domain":      "huangshengyi",
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	wb := NewWeiboSpider(WithCookie("SUB=abc"), withBaseURL(server.URL), WithDelay(0))
+	user, err := wb.GetUserInfoByURL("https://weibo.com/huangshengyi")
+	if err != nil {
+		t.Fatalf("GetUserInfoByURL() error = %v", err)
+	}
+
+	if gotCustom != "huangshengyi" {
+		t.Fatalf("custom query = %q, want huangshengyi", gotCustom)
+	}
+	if user.ID != 1821257283 || user.Name != "黄圣依" {
+		t.Fatalf("user = %#v", user)
+	}
+}
+
+func TestResolveUserIDParsesNumericProfileURLWithoutRequest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("ResolveUserID should not request numeric URL, got %s", r.URL.String())
+	}))
+	defer server.Close()
+
+	wb := NewWeiboSpider(WithCookie("SUB=abc"), withBaseURL(server.URL), WithDelay(0))
+	uid, err := wb.ResolveUserID("https://weibo.com/u/3261134763")
+	if err != nil {
+		t.Fatalf("ResolveUserID() error = %v", err)
+	}
+	if uid != 3261134763 {
+		t.Fatalf("uid = %d, want 3261134763", uid)
+	}
+}
+
+func TestGetUserPostsByURLResolvesCustomThenFetchesPosts(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ajax/profile/info":
+			if r.URL.Query().Get("custom") != "huangshengyi" {
+				t.Fatalf("profile query = %s", r.URL.RawQuery)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"ok": true,
+				"data": map[string]interface{}{
+					"user": map[string]interface{}{
+						"id":          1821257283,
+						"screen_name": "黄圣依",
+					},
+				},
+			})
+		case "/ajax/statuses/searchProfile":
+			if r.URL.Query().Get("uid") != "1821257283" || r.URL.Query().Get("page") != "1" {
+				t.Fatalf("posts query = %s", r.URL.RawQuery)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"ok": true,
+				"data": map[string]interface{}{
+					"list": []map[string]interface{}{
+						{
+							"id":         1,
+							"mid":        1,
+							"mblogid":    "Ncustom",
+							"text_raw":   "hello",
+							"created_at": "Thu Aug 13 10:00:00 +0800 2026",
+						},
+					},
+				},
+			})
+		default:
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	wb := NewWeiboSpider(WithCookie("SUB=abc"), withBaseURL(server.URL), WithDelay(0))
+	posts, err := wb.GetUserPostsByURL("weibo.com/huangshengyi", 1)
+	if err != nil {
+		t.Fatalf("GetUserPostsByURL() error = %v", err)
+	}
+	if len(posts) != 1 || posts[0].UID != 1821257283 || posts[0].Text != "hello" {
+		t.Fatalf("posts = %#v", posts)
+	}
+}
+
 func TestGetUserPostsUsesSearchProfileParsesTextRawAndLongText(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
